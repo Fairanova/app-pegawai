@@ -2,100 +2,89 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\Employee;
+use App\Models\Department;
+use App\Models\Position;
 use Illuminate\Http\Request;
 
 class EmployeeController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        $employees = Employee::latest()->paginate(5);
-
+        $employees = Employee::with(['department', 'position'])->oldest()->paginate(10);
         return view('employees.index', compact('employees'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
-        return view('employees.create');
+        $departments = Department::all();
+        $positions = Position::all();
+        return view('employees.create', compact('departments', 'positions'));
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
         $request->validate([
-            'nama_lengkap'  => 'required|string|max:255',
-            'email'         => 'required|email|max:255',
-            'nomor_telepon' => 'required|string|max:20',
+            'nama_lengkap' => 'required|string|max:255',
+            'email' => 'required|email|unique:employees,email',
+            'nomor_telepon' => 'nullable|string|max:20',
             'tanggal_lahir' => 'required|date',
-            'alamat'        => 'required|string|max:255',
+            'alamat' => 'required|string:max:255',
             'tanggal_masuk' => 'required|date',
-            'status'        => 'required|string|max:50',
+            'departemen_id' => 'required|exists:departments,id',
+            'jabatan_id' => 'required|exists:positions,id',
+            'status' => 'required|in:aktif,nonaktif'
         ]);
+
         Employee::create($request->all());
-        return redirect()->route('employees.index');
+
+        return redirect()->route('employees.index')
+            ->with('success', 'Data karyawan berhasil ditambahkan.');
     }
-    
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+
+    public function show($id)
     {
-        $employee = Employee::find($id);
+        $employee = Employee::with(['department', 'position'])->find($id);
+    
+        if (!$employee) {
+            return redirect()->route('employees.index')->with('error', 'Data tidak ditemukan');
+        }
+
         return view('employees.show', compact('employee'));
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
+    public function edit(Employee $employee)
     {
-        $employee = Employee::find($id);
-        return view('employees.edit', compact('employee'));
+        $departments = Department::all();
+        $positions = Position::all();
+        return view('employees.edit', compact('employee', 'departments', 'positions'));
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
+    public function update(Request $request, Employee $employee)
     {
         $request->validate([
-            'nama_lengkap'  => 'required|string|max:255',
-            'email'         => 'required|email|max:255',
-            'nomor_telepon' => 'required|string|max:20',
+            'nama_lengkap' => 'required|string|max:255',
+            'email' => 'required|email|unique:employees,email,' . $employee->id,
+            'nomor_telepon' => 'nullable|string|max:20',
             'tanggal_lahir' => 'required|date',
-            'alamat'        => 'required|string|max:255',
+            'alamat' => 'required|string:max:255',
             'tanggal_masuk' => 'required|date',
-            'status'        => 'required|string|max:50'
+            'departemen_id' => 'required|exists:departments,id',
+            'jabatan_id' => 'required|exists:positions,id',
+            'status' => 'required|in:aktif,nonaktif'
         ]);
-        $employee = Employee::findOrFail($id);
-        $employee->update($request->only([
-            'nama_lengkap',
-            'emial',
-            'nomor_telepon',
-            'tanggal_lahir',
-            'alamat',
-            'tanggal_masuk',
-            'status',
-        ]));
-        return redirect()->route('employees.index');
+
+        $employee->update($request->all());
+
+        return redirect()->route('employees.index')
+            ->with('success', 'Data karyawan berhasil diperbarui.');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
+    public function destroy(Employee $employee)
     {
-        $employee = Employee::find($id);
         $employee->delete();
-        return redirect()->route('employees.index');
+
+        return redirect()->route('employees.index')
+            ->with('success', 'Data karyawan berhasil dihapus.');
     }
 }
